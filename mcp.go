@@ -25,14 +25,11 @@ func workdeskCandidates() []string {
 		}
 		return []string{filepath.Join(pf, "WorkDesk", "WorkDesk.exe")}
 	case "darwin":
-		apps, _ := filepath.Glob("/Applications/*.app/Contents/MacOS/*")
-		out := []string{}
-		for _, a := range apps {
-			if b := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(a)))); b == "WorkDesk.app" || b == "RustDesk.app" {
-				out = append(out, a)
-			}
+		// DMG WorkDesk ставит бандл RustDesk.app; обычный RustDesk без --mcp отсеет probeMcp
+		return []string{
+			"/Applications/WorkDesk.app/Contents/MacOS/WorkDesk",
+			"/Applications/RustDesk.app/Contents/MacOS/RustDesk",
 		}
-		return out
 	default:
 		return []string{"/usr/bin/workdesk", "/usr/share/workdesk/workdesk", "/usr/lib/workdesk/workdesk"}
 	}
