@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,19 @@ import (
 func TestMain(m *testing.M) {
 	if os.Getenv("FAKE_CLAUDE") == "1" {
 		fakeClaude(os.Args[1:])
+		os.Exit(0)
+	}
+	switch os.Getenv("FAKE_WORKDESK") {
+	case "mcp":
+		// посторонний вывод до ответа не должен мешать
+		fmt.Println("starting...")
+		var req map[string]any
+		_ = json.NewDecoder(os.Stdin).Decode(&req)
+		b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req["id"], "result": map[string]any{"protocolVersion": "2025-06-18"}})
+		fmt.Println(string(b))
+		os.Exit(0)
+	case "old":
+		time.Sleep(time.Minute) // старый клиент: открывает окно и молчит
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
@@ -234,5 +248,23 @@ func TestMcpConfigArgs(t *testing.T) {
 	s := cfg.McpServers["workdesk"]
 	if s.Command != workdeskBin || len(s.Args) != 1 || s.Args[0] != "--mcp" {
 		t.Fatalf("конфиг MCP: %+v", cfg)
+	}
+}
+
+func TestProbeMcp(t *testing.T) {
+	t.Setenv("FAKE_WORKDESK", "mcp")
+	if err := probeMcp(os.Args[0], 10*time.Second); err != nil {
+		t.Fatalf("клиент с --mcp: %v", err)
+	}
+	t.Setenv("FAKE_WORKDESK", "old")
+	start := time.Now()
+	if err := probeMcp(os.Args[0], 2*time.Second); err == nil {
+		t.Fatal("старый клиент принят за MCP")
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Fatal("проверка зависла")
+	}
+	if err := probeMcp(filepath.Join(t.TempDir(), "нет-такого"), time.Second); err == nil {
+		t.Fatal("несуществующая программа принята")
 	}
 }

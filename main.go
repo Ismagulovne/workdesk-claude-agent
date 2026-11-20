@@ -23,7 +23,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-var version = "0.1.0"
+var version = "0.1.1"
 
 func usage() {
 	fmt.Fprint(os.Stderr, `WorkDesk+Claude агент `+version+`
@@ -52,17 +52,25 @@ func main() {
 	device := fs.String("device", "", "ID WorkDesk этого компьютера")
 	cwd := fs.String("cwd", "", "папка по умолчанию для Claude Code")
 	claude := fs.String("claude", "", "путь к claude, если его нет в PATH")
-	wd := fs.String("workdesk", "", "путь к WorkDesk для доступа Claude к другим устройствам (--mcp); off — не подключать")
+	wd := fs.String("workdesk", "", "доступ Claude к другим устройствам через WorkDesk --mcp: auto — найти установленный WorkDesk, или путь к нему; по умолчанию выключено")
 	_ = fs.Parse(os.Args[2:])
 	if *claude != "" {
 		claudeBin = *claude
 	}
 	switch *wd {
-	case "off":
-	case "":
-		workdeskBin = detectWorkdesk()
+	case "", "off":
 	default:
-		workdeskBin = *wd
+		bin := *wd
+		if bin == "auto" {
+			bin = detectWorkdesk()
+		}
+		if bin == "" {
+			log.Print("WorkDesk не найден: доступ Claude к другим устройствам выключен")
+		} else if err := probeMcp(bin, 15*time.Second); err != nil {
+			log.Printf("WorkDesk %s не поддерживает --mcp (%v): обновите клиент WorkDesk; доступ к другим устройствам выключен", bin, err)
+		} else {
+			workdeskBin = bin
+		}
 	}
 
 	switch os.Args[1] {
