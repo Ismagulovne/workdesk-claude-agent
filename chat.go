@@ -40,6 +40,7 @@ func (s *chatSession) args(text string) []string {
 	if s.sessionID != "" {
 		a = append(a, "--resume", s.sessionID)
 	}
+	a = append(a, mcpConfigArgs()...)
 	if len(s.allowed) > 0 {
 		tools := make([]string, 0, len(s.allowed))
 		for t := range s.allowed {

@@ -199,3 +199,40 @@ func TestDeviceIDParsing(t *testing.T) {
 		}
 	}
 }
+
+func TestMcpConfigArgs(t *testing.T) {
+	old := workdeskBin
+	t.Cleanup(func() { workdeskBin = old })
+
+	workdeskBin = ""
+	for _, a := range newChatSession("s", ".", "default", "", nil).args("x") {
+		if a == "--mcp-config" {
+			t.Fatal("без WorkDesk --mcp-config не нужен")
+		}
+	}
+
+	workdeskBin = "/opt/WorkDesk/WorkDesk"
+	args := newChatSession("s", ".", "default", "", nil).args("x")
+	i := -1
+	for k, a := range args {
+		if a == "--mcp-config" {
+			i = k
+		}
+	}
+	if i < 0 || i+1 >= len(args) {
+		t.Fatalf("нет --mcp-config: %v", args)
+	}
+	var cfg struct {
+		McpServers map[string]struct {
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+		} `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(args[i+1]), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	s := cfg.McpServers["workdesk"]
+	if s.Command != workdeskBin || len(s.Args) != 1 || s.Args[0] != "--mcp" {
+		t.Fatalf("конфиг MCP: %+v", cfg)
+	}
+}

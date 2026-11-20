@@ -29,7 +29,7 @@ func usage() {
 	fmt.Fprint(os.Stderr, `WorkDesk+Claude агент `+version+`
 
   workdesk-claude login [-server URL] [-device ID]   привязать компьютер к учетной записи WorkDesk
-  workdesk-claude run [-cwd ПАПКА]                   подключиться и ждать команд с телефона
+  workdesk-claude run [-cwd ПАПКА] [-workdesk ПУТЬ|off]  подключиться и ждать команд с телефона
   workdesk-claude status                             показать настройки и наличие Claude Code
   workdesk-claude logout                             отвязать компьютер
 
@@ -52,9 +52,17 @@ func main() {
 	device := fs.String("device", "", "ID WorkDesk этого компьютера")
 	cwd := fs.String("cwd", "", "папка по умолчанию для Claude Code")
 	claude := fs.String("claude", "", "путь к claude, если его нет в PATH")
+	wd := fs.String("workdesk", "", "путь к WorkDesk для доступа Claude к другим устройствам (--mcp); off — не подключать")
 	_ = fs.Parse(os.Args[2:])
 	if *claude != "" {
 		claudeBin = *claude
+	}
+	switch *wd {
+	case "off":
+	case "":
+		workdeskBin = detectWorkdesk()
+	default:
+		workdeskBin = *wd
 	}
 
 	switch os.Args[1] {
@@ -70,8 +78,8 @@ func main() {
 		fmt.Println("Компьютер отвязан.")
 	case "status":
 		v, logged := claudeInfo()
-		fmt.Printf("Сервер: %s\nУчетная запись: %s\nID WorkDesk: %s\nClaude Code: %s (вход: %v)\n",
-			cfg.Server, orDash(cfg.Username), orDash(cfg.Device), orDash(v), logged)
+		fmt.Printf("Сервер: %s\nУчетная запись: %s\nID WorkDesk: %s\nClaude Code: %s (вход: %v)\nWorkDesk для Claude (--mcp): %s\n",
+			cfg.Server, orDash(cfg.Username), orDash(cfg.Device), orDash(v), logged, orDash(workdeskBin))
 	case "run":
 		if cfg.Token == "" {
 			log.Fatal("сначала выполните: workdesk-claude login")
@@ -194,7 +202,7 @@ func runOnce(ctx context.Context, cfg *Config) error {
 	v, logged := claudeInfo()
 	send(map[string]any{"t": "hello", "hostname": host, "os": runtime.GOOS + "/" + runtime.GOARCH,
 		"agent_version": version, "claude_version": v, "claude_logged_in": logged, "cwd": cfg.Cwd})
-	log.Printf("подключен к %s как %s (ID %s), Claude Code: %s", cfg.Server, cfg.Username, cfg.Device, orDash(v))
+	log.Printf("подключен к %s как %s (ID %s), Claude Code: %s, WorkDesk --mcp: %s", cfg.Server, cfg.Username, cfg.Device, orDash(v), orDash(workdeskBin))
 
 	sessions := map[string]session{}
 	defer func() {

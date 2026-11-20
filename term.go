@@ -25,7 +25,7 @@ func startTerm(sid, cwd string, cols, rows int, send func(map[string]any)) (*ter
 		p.Close()
 		return nil, err
 	}
-	cmd := p.Command(claudeBin)
+	cmd := p.Command(claudeBin, mcpConfigArgs()...)
 	cmd.Dir = cwd
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
 	if err := cmd.Start(); err != nil {
